@@ -148,7 +148,11 @@ Qed.
 Theorem ev_double : forall n,
   even (double n).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n. induction n as [|n'].
+  - simpl. apply ev_0.
+  - simpl. apply ev_SS. apply IHn'.
+Qed.
+
 (** [] *)
 
 (* ################################################################# *)
@@ -269,6 +273,16 @@ Proof.
   apply E'.
 Qed.
 
+(* This example illustrates inversion more clearly. *)
+Theorem my_evSS_ev' : forall n,
+  even (S (S (S (S n)))) -> even n.
+Proof.
+  intros n E.
+  inversion E as [| n' E'].
+  inversion E' as [| n'' E''].
+  apply E''.
+Qed.
+
 (** The [inversion] tactic can apply the principle of explosion to
     "obviously contradictory" hypotheses involving inductive
     properties, something that takes a bit more work using our
@@ -292,7 +306,11 @@ Theorem one_not_even' : ~ even 1.
 Theorem SSSSev__even : forall n,
   even (S (S (S (S n)))) -> even n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n E.
+  inversion E as [|n' E'].
+  apply evSS_ev. apply E'.
+Qed.
+
 (** [] *)
 
 (** **** Exercise: 1 star, standard (even5_nonsense)  
@@ -302,7 +320,9 @@ Proof.
 Theorem even5_nonsense :
   even 5 -> 2 + 2 = 9.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros H. exfalso. apply SSSSev__even in H. inversion H.
+Qed.
+
 (** [] *)
 
 (** The [inversion] tactic does quite a bit of work. When
@@ -324,6 +344,12 @@ Theorem inversion_ex2 : forall (n : nat),
   2 + 2 = 5.
 Proof.
   intros n contra. inversion contra. Qed.
+
+Lemma my_inversion_ex1 : forall (a b c d e f : nat),
+    [a; b; c] = [d; e; f] -> a + b + c = d + e + f.
+Proof.
+  intros a b c d e f. intros H. inversion H. reflexivity.
+Qed.
 
 (** Here's how [inversion] works in general.  Suppose the name
     [H] refers to an assumption [P] in the current context, where [P]
@@ -451,8 +477,19 @@ Qed.
 
 (** **** Exercise: 2 stars, standard (ev_sum)  *)
 Theorem ev_sum : forall n m, even n -> even m -> even (n + m).
+(*
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n m. intros E1 E2. apply ev_even_iff in E1. apply ev_even_iff in E2.
+  destruct E1 as [k1 H1]. destruct E2 as [k2 H2]. apply ev_even_iff.
+  exists (k1 + k2). rewrite H1. rewrite H2. rewrite double_plus.
+  rewrite double_plus. rewrite double_plus. rewrite plus_assoc.
+  rewrite plus_assoc. rewrite plus_comm. Abort. *)
+Proof.
+  intros n m. intros E1 E2. induction E1 as [|n' E' IH].
+  - simpl. apply E2.
+  - simpl. apply ev_SS. apply IH.
+Qed.
+
 (** [] *)
 
 (** **** Exercise: 4 stars, advanced, optional (even'_ev)  
@@ -472,7 +509,18 @@ Inductive even' : nat -> Prop :=
 
 Theorem even'_ev : forall n, even' n <-> even n.
 Proof.
- (* FILL IN HERE *) Admitted.
+  intros n. split.
+  - intros E. induction E as [ | |n' m' En' IHn' Em' IHm'].
+    (* Special order of IH here *)
+    + apply ev_0.
+    + apply ev_SS. apply ev_0.
+    + apply ev_sum. apply IHn'. apply IHm'.
+  - intros E. induction E as [|n' E' IH].
+    + apply even'_0.
+    + assert (H0: S (S n') = 2 + n'). { reflexivity. } rewrite H0.
+      apply even'_sum. apply even'_2. apply IH.
+Qed.
+
 (** [] *)
 
 (** **** Exercise: 3 stars, advanced, recommended (ev_ev__ev)  
@@ -483,7 +531,11 @@ Proof.
 Theorem ev_ev__ev : forall n m,
   even (n+m) -> even n -> even m.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n m. intros E1 E2. induction E2 as [|n' E' IH].
+  - simpl in E1. apply E1.
+  - simpl in E1. apply evSS_ev' in E1. apply IH in E1. apply E1.
+Qed.
+
 (** [] *)
 
 (** **** Exercise: 3 stars, standard, optional (ev_plus_plus)  
@@ -495,7 +547,17 @@ Proof.
 Theorem ev_plus_plus : forall n m p,
   even (n+m) -> even (n+p) -> even (m+p).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n m p. intros E1 E2.
+  apply even'_ev in E1 as E1'. apply even'_ev in E2 as E2'.
+  (* The following three lines perform similar operations. *)
+  (* apply (even'_sum (n+m) (n+p)) in E1. *)
+  apply (even'_sum (n+m) (n+p) E1') in E2' as E3.
+  (* Check (even'_sum (n+m) (n+p) E1 E2). *)
+  rewrite <- (plus_assoc n m (n+p)) in E3. rewrite (plus_swap m n p) in E3.
+  rewrite plus_assoc in E3. rewrite <- double_plus in E3. apply even'_ev in E3.
+  apply (ev_ev__ev (double n) (m+p)) in E3. apply E3. apply ev_double.
+Qed.
+
 (** [] *)
 
 (* ################################################################# *)
