@@ -641,10 +641,29 @@ Inductive next_even : nat -> nat -> Prop :=
   | ne_1 n : even (S n) -> next_even n (S n)
   | ne_2 n (H : even (S (S n))) : next_even n (S (S n)).
 
+Inductive my_square_of : nat -> nat -> Prop :=
+  (* | my_sq n : n <> 0 -> my_square_of n (n * n). 
+  The follwing line is equivalent. *)
+  | my_sq n (Ht : n <> 0) : my_square_of n (n * n).
+Lemma my_square_of_ex1 : forall a b,
+    my_square_of a b -> a <= b.
+Proof. intros a b Hy. destruct Hy.
+(* This is a perfect example for how destruct performs the rewrites. *)
+Abort.
+
 (** **** Exercise: 2 stars, standard, optional (total_relation)  
 
     Define an inductive binary relation [total_relation] that holds
     between every pair of natural numbers. *)
+
+Inductive total_relation : nat -> nat -> Prop :=
+  | total_relation_only (n m : nat) : total_relation n m.
+Example total_relation_ex1 : total_relation 2 5.
+Proof. simpl. apply (total_relation_only). Qed.
+Example total_relation_ex2 : total_relation 3 0.
+Proof. simpl. apply (total_relation_only 3 0). Qed.
+(* Example total_relation_ex1 : total_relation nil 5.
+Proof. apply (total_relation_only). Qed. *)
 
 (* FILL IN HERE 
 
@@ -654,6 +673,11 @@ Inductive next_even : nat -> nat -> Prop :=
 
     Define an inductive binary relation [empty_relation] (on numbers)
     that never holds. *)
+
+Inductive empty_relation : nat -> nat -> Prop := .
+
+Example empty_relation_ex1 : ~ (empty_relation 3 5).
+Proof. unfold not. intros H. inversion H. Qed.
 
 (* FILL IN HERE 
 
@@ -677,47 +701,111 @@ Inductive next_even : nat -> nat -> Prop :=
     we are going to need later in the course.  The proofs make good
     practice exercises. *)
 
+Inductive my_le : nat -> nat -> Prop :=
+  | my_le_n n : my_le (S n) (S n)
+  | my_le_S n m (H : le n m) : my_le n (S m).
+Lemma my_le_trans : forall m n o, my_le m n -> n <= o -> m <= o.
+Proof.
+  intros m' n' o'. intros H1 H2. destruct H1.
+  (* Another example how destruct does the rewrite. *)
+Abort.
+
+
 Lemma le_trans : forall m n o, m <= n -> n <= o -> m <= o.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  (*
+  intros a b c. intros H1 H2. destruct H1.
+  - apply H2.
+  - (* original: a <= b
+
+       match original with le_S: a = n; b = S m 
+
+       a = n is not rewritten.
+       H: n <= m -> a <= m
+       H2: b <= c -- S m <= c
+       goal: a <= c -- a <= c *)
+    destruct H2.
+    + apply le_S. apply H1.
+    + apply le_S. apply *)
+  intros m n o. intros E1 E2. induction E2 as [|m' H IH].
+  - apply E1.
+  - apply le_S. apply IH.
+Qed.
+
 
 Theorem O_le_n : forall n,
-  0 <= n.
+    0 <= n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  induction n as [|n'].
+  - apply le_n.
+  - apply le_S. apply IHn'.
+Qed. 
+
 
 Theorem n_le_m__Sn_le_Sm : forall n m,
   n <= m -> S n <= S m.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n m E. induction E as [|m' E' IH].
+  - apply le_n.
+  - apply le_S. apply IH.
+Qed.
+
 
 Theorem Sn_le_Sm__n_le_m : forall n m,
   S n <= S m -> n <= m.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n m. intros E. inversion E.
+  - apply le_n.
+  - assert (H1: n <= S n).
+    { apply le_S. apply le_n. }
+    apply (le_trans n (S n) m).
+    apply H1. apply H0.
+Qed.
+                           
 
 Theorem le_plus_l : forall a b,
   a <= a + b.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros a b. induction b as [|b'].
+  - rewrite <- plus_n_O. apply le_n.
+  - rewrite <- plus_n_Sm. apply le_S. apply IHb'.
+Qed.
+
 
 Theorem plus_lt : forall n1 n2 m,
   n1 + n2 < m ->
   n1 < m /\ n2 < m.
 Proof.
- unfold lt.
- (* FILL IN HERE *) Admitted.
+  unfold lt. intros n1 n2 m E. split.
+  - apply (le_trans (S n1) (S (n1 + n2)) m).
+    + apply n_le_m__Sn_le_Sm. apply le_plus_l.
+    + apply E.
+  - apply (le_trans (S n2) (S (n1 + n2)) m).
+    + apply n_le_m__Sn_le_Sm. rewrite plus_comm. apply le_plus_l.
+    + apply E.
+Qed.
+ 
 
 Theorem lt_S : forall n m,
   n < m ->
   n < S m.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  unfold lt. intros n m. apply (le_S (S n) m).
+Qed.
+
 
 Theorem leb_complete : forall n m,
   n <=? m = true -> n <= m.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n m. generalize dependent n. induction m as [|m' IHm'].
+  - destruct n as [|n'].
+    + intros H. apply le_n.
+    + intros H. simpl in H. discriminate H.
+  - intros n H. destruct n as [|n'].
+    + rewrite <- plus_O_n. apply le_plus_l.
+    + apply n_le_m__Sn_le_Sm. apply IHm'. simpl in H. apply H.
+Qed.
+
 
 (** Hint: The next one may be easiest to prove by induction on [m]. *)
 
@@ -725,21 +813,33 @@ Theorem leb_correct : forall n m,
   n <= m ->
   n <=? m = true.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n m. generalize dependent n. induction m as [|m' IHm'].
+  - intros n E. inversion E. simpl. reflexivity.
+  - intros n E. destruct n as [|n'].
+    + simpl. reflexivity.
+    + simpl. apply IHm'. apply Sn_le_Sm__n_le_m. apply E.
+Qed.
+
 
 (** Hint: This one can easily be proved without using [induction]. *)
 
 Theorem leb_true_trans : forall n m o,
   n <=? m = true -> m <=? o = true -> n <=? o = true.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n m o. intros H1 H2.
+  apply leb_complete in H1. apply leb_complete in H2.
+  apply leb_correct. apply (le_trans n m o). apply H1. apply H2.
+Qed.
+
 (** [] *)
 
 (** **** Exercise: 2 stars, standard, optional (leb_iff)  *)
 Theorem leb_iff : forall n m,
   n <=? m = true <-> n <= m.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  split. apply leb_complete. apply leb_correct.
+Qed.
+
 (** [] *)
 
 Module R.
