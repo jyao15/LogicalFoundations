@@ -981,7 +981,10 @@ Lemma subseq_minus : forall (n : nat) (l1 l2 : list nat),
     subseq (n::l1) (n::l2) -> subseq l1 l2.
 Proof.
   intros n l1 l2 E.
-  induction E as [l| |].
+  remember (n::l1) as l1'. remember (n::l2) as l2'.
+  induction E.
+  - (* Abort. Without remember, I was stuck here. *)
+    discriminate Heql1'.
   - Abort.
 
 Theorem subseq_trans : forall (l1 l2 l3 : list nat),
@@ -1230,13 +1233,19 @@ Qed.
 Lemma empty_is_empty : forall T (s : list T),
   ~ (s =~ EmptySet).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros T s. intros H. inversion H.
+Qed.
+
 
 Lemma MUnion' : forall T (s : list T) (re1 re2 : @reg_exp T),
   s =~ re1 \/ s =~ re2 ->
   s =~ Union re1 re2.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros T s re1 re2. intros [H1 | H2].
+  - apply MUnionL. apply H1.
+  - apply MUnionR. apply H2.
+Qed.
+
 
 (** The next lemma is stated in terms of the [fold] function from the
     [Poly] chapter: If [ss : list (list T)] represents a sequence of
@@ -1247,7 +1256,15 @@ Lemma MStar' : forall T (ss : list (list T)) (re : reg_exp),
   (forall s, In s ss -> s =~ re) ->
   fold app ss [] =~ Star re.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros T ss re H.
+  induction ss as [|s1 ss' IHss'].
+  - simpl. apply MStar0.
+  - simpl. apply (MStarApp s1 (fold app ss' []) re). apply H.
+    simpl. left. reflexivity. apply IHss'. intros s H1. apply H.
+    simpl. right. apply H1.
+Qed.
+
+
 (** [] *)
 
 (** **** Exercise: 4 stars, standard, optional (reg_exp_of_list_spec)  
@@ -1258,7 +1275,21 @@ Proof.
 Lemma reg_exp_of_list_spec : forall T (s1 s2 : list T),
   s1 =~ reg_exp_of_list s2 <-> s1 = s2.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros T s1 s2. generalize dependent s1. induction s2 as [|n2 s2' IHs2'].
+  - split.
+    + intros H. simpl in H. inversion H. reflexivity.
+    + intros H. simpl. rewrite H. apply MEmpty.
+  - split.
+    + intros H. simpl in H. destruct s1 as [|n1 s1'].
+      * inversion H. inversion H3. rewrite <- H5 in H1. inversion H1.
+      * inversion H. inversion H3. simpl. apply (IHs2' s2) in H4. rewrite H4.
+        reflexivity.
+    + intros H. destruct s1 as [|n1 s1'].
+      * discriminate H.
+      * simpl. inversion H. apply (MApp [n2] (Char n2) s2' _).
+        apply MChar. apply IHs2'. reflexivity.
+Qed.
+
 (** [] *)
 
 (** Since the definition of [exp_match] has a recursive
@@ -1341,13 +1372,48 @@ Qed.
     regular expression matches some string. Prove that your function
     is correct. *)
 
-Fixpoint re_not_empty {T : Type} (re : @reg_exp T) : bool
-  (* REPLACE THIS LINE WITH ":= _your_definition_ ." *). Admitted.
+Fixpoint re_not_empty {T : Type} (re : @reg_exp T) : bool :=
+  match re with
+  | EmptySet => false
+  | EmptyStr => true
+  | Char t => true
+  | App r1 r2 => (re_not_empty r1) && (re_not_empty r2)
+  | Union r1 r2 => (re_not_empty r1) || (re_not_empty r2)
+  | Star r => true (* I was wrong here. EmptyStr can match Star r *)
+  end.
+
+  
 
 Lemma re_not_empty_correct : forall T (re : @reg_exp T),
   (exists s, s =~ re) <-> re_not_empty re = true.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros T re. split.
+  - intros H. destruct H as [s H1]. induction H1.
+    + simpl. reflexivity.
+    + simpl. reflexivity.
+    + simpl. apply andb_true_iff. split.
+      * apply IHexp_match1.
+      * apply IHexp_match2.
+    + simpl. apply orb_true_iff. left. apply IHexp_match.
+    + simpl. apply orb_true_iff. right. apply IHexp_match.
+    + simpl. reflexivity.
+    + simpl. reflexivity.
+  - intros H. induction re as [| |t|r1 IH1 r2 IH2|r1 IH1 r2 IH2|r IH].
+    + simpl in H. discriminate H.
+    + exists []. apply MEmpty.
+    + exists [t]. apply MChar.
+    + simpl in H. apply andb_true_iff in H. destruct H as [H1 H2].
+      destruct (IH1 H1) as [s1 H11]. destruct (IH2 H2) as [s2 H22].
+      exists (s1++s2). apply MApp. apply H11. apply H22.
+    + simpl in H. apply orb_true_iff in H. destruct H as [H1 | H2].
+      * destruct (IH1 H1) as [s1 H11].
+        exists s1. apply MUnionL. apply H11.
+      * destruct (IH2 H2) as [s2 H22].
+        exists s2. apply MUnionR. apply H22.
+    + exists []. apply MStar0.
+Qed.
+
+    
 (** [] *)
 
 (* ================================================================= *)
@@ -1486,7 +1552,22 @@ Lemma MStar'' : forall T (s : list T) (re : reg_exp),
     s = fold app ss []
     /\ forall s', In s' ss -> s' =~ re.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros T s re E. remember (Star re) as re'. induction E.
+  - discriminate Heqre'.
+  - discriminate Heqre'.
+  - discriminate Heqre'.
+  - discriminate Heqre'.
+  - discriminate Heqre'.
+  - injection Heqre' as H.
+    exists []. split. reflexivity. intros s' H1. simpl in H1. destruct H1.
+  - destruct (IHE2 Heqre') as [ss2 [H1 H2]].
+    exists (s1::ss2). simpl. split.
+    + rewrite <- H1. reflexivity.
+    + intros s'. intros [H3 | H4].
+      * rewrite H3 in E1. injection Heqre' as H0. rewrite <- H0. apply E1.
+      * apply H2. apply H4.
+Qed.
+
 (** [] *)
 
 (** **** Exercise: 5 stars, advanced (pumping)  
