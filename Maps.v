@@ -82,7 +82,8 @@ Proof.
    intros x y.
    unfold eqb_string.
    destruct (string_dec x y) as [|Hs].
-   - subst. split. reflexivity. reflexivity.
+   - subst. (* My note: subst is a simplified version of rewrite which works only with identifiers. *)
+     split. reflexivity. reflexivity.
    - split.
      + intros contra. discriminate contra.
      + intros H. rewrite H in Hs. destruct Hs. reflexivity.
@@ -210,7 +211,9 @@ Proof. reflexivity. Qed.
 Lemma t_apply_empty : forall (A : Type) (x : string) (v : A),
     (_ !-> v) x = v.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros A x v. unfold t_empty. reflexivity.
+Qed.
+
 (** [] *)
 
 (** **** Exercise: 2 stars, standard, optional (t_update_eq)  
@@ -222,7 +225,9 @@ Proof.
 Lemma t_update_eq : forall (A : Type) (m : total_map A) x v,
     (x !-> v ; m) x = v.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros A m x v. unfold t_update. rewrite <- eqb_string_refl. reflexivity.
+Qed.
+
 (** [] *)
 
 (** **** Exercise: 2 stars, standard, optional (t_update_neq)  
@@ -235,7 +240,10 @@ Theorem t_update_neq : forall (A : Type) (m : total_map A) x1 x2 v,
     x1 <> x2 ->
     (x1 !-> v ; m) x2 = m x2.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros A m x1 x2 v. intros H. unfold t_update.
+  apply eqb_string_false_iff in H. rewrite H. reflexivity.
+Qed.
+
 (** [] *)
 
 (** **** Exercise: 2 stars, standard, optional (t_update_shadow)  
@@ -249,7 +257,12 @@ Proof.
 Lemma t_update_shadow : forall (A : Type) (m : total_map A) x v1 v2,
     (x !-> v2 ; x !-> v1 ; m) = (x !-> v2 ; m).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros A m x v1 v2. apply functional_extensionality. intros x0.
+  unfold t_update. destruct (eqb_string x x0) as [|].
+  + reflexivity.
+  + reflexivity.
+Qed.
+
 (** [] *)
 
 (** For the final two lemmas about total maps, it's convenient to use
@@ -264,8 +277,17 @@ Proof.
 
 Lemma eqb_stringP : forall x y : string,
     reflect (x = y) (eqb_string x y).
+(* One possible version
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros x y. destruct (eqb_string x y) eqn:Eb.
+  + apply ReflectT. apply eqb_string_true_iff. apply Eb.
+  + apply ReflectF. apply eqb_string_false_iff. apply Eb.
+Qed. *)
+Proof.
+  intros x y. apply iff_reflect. symmetry. apply eqb_string_true_iff.
+Qed.
+
+
 (** [] *)
 
 (** Now, given [string]s [x1] and [x2], we can use the tactic
@@ -284,7 +306,12 @@ Proof.
 Theorem t_update_same : forall (A : Type) (m : total_map A) x,
     (x !-> m x ; m) = m.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros A m x. apply functional_extensionality. intros x0.
+  unfold t_update. destruct (eqb_stringP x x0) as [Hs | Hs].
+  - rewrite Hs. reflexivity.
+  - reflexivity.
+Qed.
+
 (** [] *)
 
 (** **** Exercise: 3 stars, standard, recommended (t_update_permute)  
@@ -300,7 +327,16 @@ Theorem t_update_permute : forall (A : Type) (m : total_map A)
     =
     (x2 !-> v2 ; x1 !-> v1 ; m).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros A m v1 v2 x1 x2 H.
+  apply functional_extensionality. intros x.
+  unfold t_update. destruct (eqb_stringP x1 x) as [Hs1 | Hs1].
+  - rewrite <- Hs1. rewrite <- eqb_string_false_iff in H.
+    rewrite H. reflexivity.
+  - destruct (eqb_stringP x2 x) as [Hs2 | Hs2].
+    + reflexivity.
+    + reflexivity.
+Qed.
+
 (** [] *)
 
 (* ################################################################# *)
@@ -309,6 +345,8 @@ Proof.
 (** Finally, we define _partial maps_ on top of total maps.  A partial
     map with elements of type [A] is simply a total map with elements
     of type [option A] and default element [None]. *)
+
+(* Print option. *)
 
 Definition partial_map (A : Type) := total_map (option A).
 
